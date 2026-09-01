@@ -1,6 +1,6 @@
 # sc_obf
 
-Shellcode Obfuscator is a desktop GUI tool built with Rust and egui.
+sc_obf (Shellcode Obfuscator) is a desktop GUI tool built with Rust and egui.
 
 It can:
 - Generate a patched shellcode payload using LHOST and LPORT.
