@@ -1,4 +1,4 @@
-# Shellcode Obfuscator
+# sc_obf
 
 Shellcode Obfuscator is a desktop GUI tool built with Rust and egui.
 
