@@ -2,6 +2,7 @@ use arboard::Clipboard;
 use base64::Engine as _;
 use eframe::egui;
 use egui_code_editor::{CodeEditor, ColorTheme, Syntax};
+use std::path::{Path, PathBuf};
 
 use crate::formats::{ByteRepr, FormatTemplate, OutputFormat, builtin_templates, format_bytes};
 use crate::input::{InputMode, PasteFormat, parse_escaped_bytes, parse_hex_bytes};
@@ -40,10 +41,17 @@ pub struct App {
     pub custom_template: FormatTemplate,
     pub ui_theme: UiTheme,
     pub python_syntax: Syntax,
+    pub scripts_dir: PathBuf,
+    pub saved_scripts: Vec<String>,
+    pub selected_script: String,
+    pub save_name: String,
 }
 
 impl Default for App {
     fn default() -> Self {
+        let scripts_dir = scripts_dir();
+        let _ = std::fs::create_dir_all(&scripts_dir);
+        let saved_scripts = list_scripts(&scripts_dir);
         Self {
             lhost: "127.0.0.1".into(),
             lport: "4444".into(),
@@ -73,8 +81,50 @@ impl Default for App {
             ),
             ui_theme: UiTheme::Dark,
             python_syntax: Syntax::python(),
+            scripts_dir,
+            saved_scripts,
+            selected_script: String::new(),
+            save_name: String::new(),
         }
     }
+}
+
+fn scripts_dir() -> PathBuf {
+    std::env::var("HOME")
+        .map(PathBuf::from)
+        .unwrap_or_else(|_| PathBuf::from("."))
+        .join(".config")
+        .join("sc_obf")
+        .join("scripts")
+}
+
+fn list_scripts(dir: &Path) -> Vec<String> {
+    let mut names: Vec<String> = std::fs::read_dir(dir)
+        .into_iter()
+        .flatten()
+        .filter_map(|e| {
+            let p = e.ok()?.path();
+            if p.extension()? == "py" {
+                Some(p.file_stem()?.to_string_lossy().into_owned())
+            } else {
+                None
+            }
+        })
+        .collect();
+    names.sort();
+    names
+}
+
+// Allowlist: only alphanumeric, dash, underscore, space — prevents path traversal (CWE-22)
+fn safe_script_path(scripts_dir: &Path, name: &str) -> Option<PathBuf> {
+    if name.is_empty()
+        || !name
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '-' || c == '_' || c == ' ')
+    {
+        return None;
+    }
+    Some(scripts_dir.join(format!("{name}.py")))
 }
 
 impl eframe::App for App {
@@ -249,6 +299,51 @@ impl eframe::App for App {
                             "function. Output replaces the payload. Generate a payload first.",
                         );
                     });
+
+                    // ── saved scripts ─────────────────────────────────────────
+                    ui.horizontal(|ui| {
+                        ui.label("Saved:");
+                        egui::ComboBox::from_id_salt("saved_scripts_combo")
+                            .selected_text(if self.selected_script.is_empty() {
+                                "(none)"
+                            } else {
+                                &self.selected_script
+                            })
+                            .show_ui(ui, |ui| {
+                                for name in &self.saved_scripts.clone() {
+                                    ui.selectable_value(
+                                        &mut self.selected_script,
+                                        name.clone(),
+                                        name,
+                                    );
+                                }
+                            });
+                        if ui.button("Load").clicked() {
+                            self.on_load_script();
+                        }
+                        if ui
+                            .add_enabled(
+                                !self.selected_script.is_empty(),
+                                egui::Button::new("Delete"),
+                            )
+                            .clicked()
+                        {
+                            self.on_delete_script();
+                        }
+                    });
+                    ui.horizontal(|ui| {
+                        ui.label("Save as:");
+                        ui.add(
+                            egui::TextEdit::singleline(&mut self.save_name)
+                                .desired_width(160.0)
+                                .hint_text("script name"),
+                        );
+                        if ui.button("Save").clicked() {
+                            self.on_save_script();
+                        }
+                    });
+                    ui.add_space(4.0);
+
                     let mut code_editor = CodeEditor::default()
                         .id_source("python_script_editor")
                         .with_rows(18)
@@ -495,6 +590,58 @@ impl App {
             Err(e) => {
                 self.status = format!("Error reading file: {e}");
             }
+        }
+    }
+
+    pub fn on_save_script(&mut self) {
+        let name = self.save_name.trim().to_string();
+        let Some(path) = safe_script_path(&self.scripts_dir, &name) else {
+            self.script_status =
+                "Error: name must use only letters, digits, dash, underscore, or space".into();
+            return;
+        };
+        match std::fs::write(&path, &self.script_code) {
+            Ok(_) => {
+                if !self.saved_scripts.contains(&name) {
+                    self.saved_scripts.push(name.clone());
+                    self.saved_scripts.sort();
+                }
+                self.selected_script = name;
+                self.script_status = "Script saved".into();
+            }
+            Err(e) => self.script_status = format!("Error saving: {e}"),
+        }
+    }
+
+    pub fn on_load_script(&mut self) {
+        let Some(path) = safe_script_path(&self.scripts_dir, &self.selected_script.clone()) else {
+            self.script_status = "Error: invalid script name".into();
+            return;
+        };
+        match std::fs::read_to_string(&path) {
+            Ok(code) => {
+                self.script_code = code;
+                self.save_name = self.selected_script.clone();
+                self.script_status = format!("Loaded '{}'", self.selected_script);
+            }
+            Err(e) => self.script_status = format!("Error loading: {e}"),
+        }
+    }
+
+    pub fn on_delete_script(&mut self) {
+        let name = self.selected_script.clone();
+        let Some(path) = safe_script_path(&self.scripts_dir, &name) else {
+            self.script_status = "Error: invalid script name".into();
+            return;
+        };
+        match std::fs::remove_file(&path) {
+            Ok(_) => {
+                self.saved_scripts.retain(|s| s != &name);
+                self.selected_script =
+                    self.saved_scripts.first().cloned().unwrap_or_default();
+                self.script_status = format!("Deleted '{name}'");
+            }
+            Err(e) => self.script_status = format!("Error deleting: {e}"),
         }
     }
 
