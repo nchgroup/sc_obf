@@ -67,7 +67,11 @@ If Python 3 is installed and available, the Python Scripting section is enabled.
 Your script must define:
 
 ```python
+import sys
+sys.path.insert(0, "/path/to/venv/lib/python3.x/site-packages")
+
 def process(shellcode: bytes) -> str:
+    from Crypto.Cipher import AES
     # return transformed output text
     return shellcode.hex()
 ```
