@@ -22,7 +22,7 @@ The examples below use `sc_obf` from your PATH. Alternatively, use
 ```text
 sc_obf cli <OPTIONS>           Generate, load, and convert bytes
 sc_obf gui                     Open the desktop GUI
-sc_obf web [--bind IP:PORT]     Start the embedded web interface
+sc_obf web [--bind IP:PORT]    Start the embedded web interface
 sc_obf help                    Show complete help for all modes
 ```
 
@@ -31,24 +31,25 @@ for mode-specific help.
 
 ## CLI
 
-Choose one source: `--generate`, `--input PATH`, or `--text TEXT`.
+Choose one source: generate a payload, read a file/stdin, or parse inline text.
+Output goes to stdout unless `--output` / `-o` specifies a file.
 
-| Option | Description |
-| --- | --- |
-| `--generate` | Generate the embedded payload. |
-| `--input PATH`, `--load PATH` | Read a file; use `-` for stdin. |
-| `--text TEXT` | Parse inline bytes. |
-| `--lhost IPV4` | Callback address; default `127.0.0.1`. Implies generation. |
-| `--lport PORT` | Callback port; default `4444`. Implies generation. |
-| `--input-format FORMAT` | `raw`, `base64`, `hex`, or `escaped`. Defaults to `raw` for files/stdin and `base64` for inline text. |
-| `--format FORMAT` | Output format; default `hex`. See formats below. |
-| `--template TEXT` | Inline text template with `{bytes}`; implies `--format custom`. |
-| `--template-file PATH` | Load a plain-text template or legacy JSON file. |
-| `--separator TEXT` | Byte separator; default `, `. Use `''` for none. |
-| `--byte-repr REPR` | Byte representation: `0xff` (default), `&Hff`, or `\xff`. |
-| `--script PATH`, `--python PATH` | Execute a Python transformation; its returned text replaces formatted output. |
-| `--output PATH`, `-o PATH` | Save output to a file; omitted or `-` writes to stdout. |
-| `--help`, `-h` | Show CLI help. |
+```text
+--generate                     Generate the embedded payload.
+--input PATH, --load PATH      Read raw bytes from a file; - reads stdin.
+--text TEXT                    Parse inline text; default input format: base64.
+--lhost IPV4                   Default: 127.0.0.1; implies generation.
+--lport PORT                   Default: 4444; implies generation.
+--input-format FORMAT          raw, base64, hex, or escaped.
+--format FORMAT                Default: hex; supported formats below.
+--template TEXT                Inline template or JSON file path; implies custom.
+--template-file PATH           Plain-text file or .json template; implies custom.
+--separator TEXT               Custom byte separator; default: ', '. Empty allowed.
+--byte-repr REPR               Custom byte representation; default: 0xff.
+--script PATH, --python PATH   Execute process(bytes) -> str from a Python file.
+--output PATH, -o PATH         Save output; omitted or - writes to stdout.
+--help, -h                     Show CLI help.
+```
 
 Output formats: `hex`, `base64`, `c`, `python`, `rust`, `csharp`, `psh`, `vba`,
 `go`, `custom`, and `raw` (binary bytes).
@@ -120,16 +121,22 @@ scripts in `~/.config/sc_obf/scripts`.
 
 ## Custom Templates
 
-JSON is optional. Write the desired output with `{bytes}` where the bytes should
-appear and `{len}` for the byte count:
+Choose inline text, a plain-text file, or a JSON file. Each selects the `custom`
+output format automatically.
+
+### Inline text
+
+Use exactly one `{bytes}` placeholder and optionally `{len}` for the byte count:
 
 ```bash
 sc_obf cli --input payload.bin --template 'byte[] buf = { {bytes} };'
 sc_obf cli --input payload.bin --template 'buf = "{bytes}"' --byte-repr '\xff' --separator ''
 ```
 
-For mixed single/double quotes or multiline output, save the template as plain
-text in `format.tpl`. Quotes and backslashes in the file do not need escaping:
+### Plain-text file
+
+For multiline output or mixed quotes, save `format.tpl`. Quotes and backslashes
+inside this file are literal and do not need escaping:
 
 ```text
 # It's a byte buffer
@@ -140,10 +147,59 @@ buf = "{bytes}"  # {len} bytes
 sc_obf cli --input payload.bin --template-file format.tpl --byte-repr '\xff' --separator ''
 ```
 
-Templates require exactly one `{bytes}` placeholder. All other content is kept
-literally, except `{len}`, which expands to the byte count. Defaults: `0xff`
-bytes separated by `, `. `--byte-repr` also accepts `&Hff` or `\xff`.
+### JSON file
 
-Existing JSON templates still work with `--template template.json` or
-`--template-file template.json`. GUI/web retain their prefix, separator, suffix,
-and byte representation fields under **Output Templates**.
+JSON stores the template fields explicitly. Save this as `template.json`:
+
+```json
+{
+  "name": "custom",
+  "prefix": "byte[] buf = {",
+  "separator": ", ",
+  "suffix": "};",
+  "byte_repr": "0xff"
+}
+```
+
+```bash
+sc_obf cli --input payload.bin --template-file template.json
+# The original syntax also works:
+sc_obf cli --input payload.bin --template template.json
+```
+
+| JSON field | Meaning |
+| --- | --- |
+| `name` | Optional template name; defaults to `custom`. |
+| `prefix` | Text before the bytes; supports `{len}`. |
+| `separator` | Text between bytes; use `""` for none. |
+| `suffix` | Text after the bytes; supports `{len}`. |
+| `byte_repr` | `0xff`, `&Hff`, or `\xff`. |
+
+JSON uses prefix/suffix fields instead of a `{bytes}` placeholder. All fields
+except `name` are required. Escape double quotes as `\"` and backslashes as
+`\\` inside JSON strings. For example, this produces a quoted Python buffer:
+
+```json
+{
+  "prefix": "buf = \"",
+  "separator": "",
+  "suffix": "\"",
+  "byte_repr": "\\xff"
+}
+```
+
+### Byte representation and separators
+
+`--byte-repr` controls each byte; `--separator` controls the text between them.
+For input bytes `90 ff`:
+
+| Representation | With the default `, ` separator |
+| --- | --- |
+| `0xff` | `0x90, 0xff` |
+| `&Hff` | `&H90, &Hff` |
+| `\xff` | `\x90, \xff` |
+
+Command-line `--separator` and `--byte-repr` override the corresponding JSON
+fields. Use `--separator ''` to concatenate bytes without a separator.
+GUI/web provide the same prefix, separator, suffix, and byte representation
+fields under **Output Templates**.
