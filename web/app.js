@@ -33,7 +33,7 @@ async function api(request) {
   });
   let result;
   try { result = await response.json(); }
-  catch { throw new Error('Invalid server response. Start cargo run -- --web.'); }
+  catch { throw new Error('Invalid server response. Start cargo run -- web.'); }
   if (!response.ok || !result.ok) throw new Error(result.error || `HTTP ${response.status}`);
   return result.data;
 }
@@ -105,7 +105,7 @@ async function convertFile(file) {
   setOutput(data, `Loaded ${data.count} bytes from '${file.name}', output format: ${$('format').value}`);
 }
 function upload(files) {
-  if (!connected) { status('Error: start cargo run -- --web to load files.', false, true); return; }
+  if (!connected) { status('Error: start cargo run -- web to load files.', false, true); return; }
   operation(async () => {
     setMode('load');
     const errors = [];
@@ -260,6 +260,6 @@ operation(async () => {
   } catch {
     $('connection').textContent = '● Disconnected';
     $('python-unavailable').textContent = 'Start the Rust web server to enable Python scripting.';
-    throw new Error('Start cargo run -- --web and open the configured address (default: http://127.0.0.1:3000).');
+    throw new Error('Start cargo run -- web and open the configured address (default: http://127.0.0.1:3000).');
   }
 });

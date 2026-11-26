@@ -1,135 +1,149 @@
 # sc_obf
 
-sc_obf (Shellcode Obfuscator) provides a Rust/egui desktop GUI and a local web
-interface served by a Rust binary.
-
-It can:
-- Generate a patched shellcode payload using LHOST and LPORT.
-- Load payload bytes directly from a raw file.
-- Parse pasted payloads in base64, hex, or escaped `\\xNN` format.
-- Convert payloads to multiple output representations (hex, base64, C, Python, Rust, C#, PowerShell, VBA, Go, and custom templates).
-- Apply custom Python scripting (when Python 3 is available) to transform payload data.
-
-## Project Name
-
-- Cargo package name: `sc_obf`
-- App display name: `Shellcode Obfuscator`
-
-## Requirements
-
-- Rust toolchain (stable)
-- Cargo
-- On macOS: Xcode Command Line Tools (for native compilation)
-- Optional: Python 3 (to enable the Python scripting panel)
+Shellcode Obfuscator provides CLI, desktop GUI, and web interfaces in one Rust
+binary. Generate payloads with LHOST/LPORT, load or parse bytes, convert output
+formats, and apply Python transformations.
 
 ## Build
 
-```bash
-cargo build
-```
-
-## Run
-
-```bash
-cargo run
-```
-
-## Web Interface
-
-Run the same application in your browser:
-
-```bash
-cargo run -- --web
-```
-
-Open **http://127.0.0.1:3000**. To customize the host and port:
-
-```bash
-cargo run -- --web 127.0.0.1:8080
-cargo run -- --web 0.0.0.0:3000
-```
-
-Use `0.0.0.0` to listen on all network interfaces. Without `--web`, the
-application opens the desktop GUI.
-
-To build and run the binary directly:
+Requires stable Rust and Cargo. On macOS, install Xcode Command Line Tools.
+Python 3 is optional and enables scripting.
 
 ```bash
 cargo build --release
-./target/release/sc_obf --web
+./target/release/sc_obf help
 ```
 
-The web interface includes the desktop features plus drag and drop, multiple
-file selection, and output downloads. The server and frontend are embedded in
-the Rust binary; rebuild after changing the frontend. Python is only used for
-optional scripting.
+The examples below use `sc_obf` from your PATH. Alternatively, use
+`./target/release/sc_obf` or `cargo run -- <command> <options>`.
 
-Files are processed on the machine running the server and kept in memory
-(5 MiB per file, 20 MiB total). Reloading clears the file list. Both interfaces
-share saved scripts in `~/.config/sc_obf/scripts`.
+## Usage
 
-## How To Use
+```text
+sc_obf cli <OPTIONS>           Generate, load, and convert bytes
+sc_obf gui                     Open the desktop GUI
+sc_obf web [--bind IP:PORT]     Start the embedded web interface
+sc_obf help                    Show complete help for all modes
+```
 
-1. Open the application.
-2. Choose an input mode:
-   - Generate: provide LHOST and LPORT.
-   - Load shellcode: open a raw file or paste payload text.
-3. Select output format.
-4. Click:
-   - Generate (for LHOST/LPORT mode)
-   - Parse & Convert (for pasted payload mode)
-5. Copy output from the Output panel.
+Without arguments, the binary shows a summary. Use `cli --help` or `web --help`
+for mode-specific help.
 
-## Input Modes
+## CLI
 
-### Generate
+Choose one source: `--generate`, `--input PATH`, or `--text TEXT`.
 
-- Enter LHOST (IPv4) and LPORT.
-- The app patches the embedded base payload and renders the selected output format.
+| Option | Description |
+| --- | --- |
+| `--generate` | Generate the embedded payload. |
+| `--input PATH`, `--load PATH` | Read a file; use `-` for stdin. |
+| `--text TEXT` | Parse inline bytes. |
+| `--lhost IPV4` | Callback address; default `127.0.0.1`. Implies generation. |
+| `--lport PORT` | Callback port; default `4444`. Implies generation. |
+| `--input-format FORMAT` | `raw`, `base64`, `hex`, or `escaped`. Defaults to `raw` for files/stdin and `base64` for inline text. |
+| `--format FORMAT` | Output format; default `hex`. See formats below. |
+| `--template TEXT` | Inline text template with `{bytes}`; implies `--format custom`. |
+| `--template-file PATH` | Load a plain-text template or legacy JSON file. |
+| `--separator TEXT` | Byte separator; default `, `. Use `''` for none. |
+| `--byte-repr REPR` | Byte representation: `0xff` (default), `&Hff`, or `\xff`. |
+| `--script PATH`, `--python PATH` | Execute a Python transformation; its returned text replaces formatted output. |
+| `--output PATH`, `-o PATH` | Save output to a file; omitted or `-` writes to stdout. |
+| `--help`, `-h` | Show CLI help. |
 
-### Load shellcode
+Output formats: `hex`, `base64`, `c`, `python`, `rust`, `csharp`, `psh`, `vba`,
+`go`, `custom`, and `raw` (binary bytes).
 
-- Open file: reads bytes as raw binary.
-- Paste mode supports:
-  - base64
-  - hex (supports compact and prefixed styles like `0x90,0x90`)
-  - escaped bytes like `\x90\x90\xCC`
+```bash
+# Generate and format as Rust
+sc_obf cli --generate --lhost 127.0.0.1 --lport 4444 --format rust
+
+# Convert a binary file to base64
+sc_obf cli --input payload.bin --format base64 -o payload.txt
+
+# Parse inline hex and output C
+sc_obf cli --text '0090ff' --input-format hex --format c
+
+# Read hex from stdin and save raw bytes
+printf '0090ff' | sc_obf cli --input - --input-format hex --format raw -o payload.bin
+
+# Apply a Python script
+sc_obf cli --input payload.bin --script transform.py -o result.txt
+```
+
+## GUI and Web
+
+```bash
+sc_obf gui
+sc_obf web
+sc_obf web --bind 0.0.0.0:8080
+sc_obf web --bind '[::1]:3000'
+```
+
+The web interface defaults to **http://127.0.0.1:3000**. `--bind IP:PORT`
+customizes the listener; `0.0.0.0` listens on all IPv4 interfaces.
+
+Both interfaces offer Dark/Light themes, generation, file/text input, output
+formats, Python scripting, and templates. Choose **Generate** or **Load shellcode**,
+select a format, then generate or parse and convert your input.
+
+The web interface adds drag and drop, multiple file selection, and downloads.
+Files are processed on the server in memory: 5 MiB per file, 20 MiB total in the
+browser list. Reloading clears the list. The server and frontend are embedded
+in the binary; rebuild after editing `web/`.
 
 ## Python Scripting
 
-If Python 3 is installed and available, the Python Scripting section is enabled.
-
-Your script must define:
+Python 3 must be installed and available to the application. Define
+`process(shellcode: bytes) -> str` in your script:
 
 ```python
 import sys
+
+# Optional: import packages from a virtual environment.
 sys.path.insert(0, "/path/to/venv/lib/python3.x/site-packages")
 
+
 def process(shellcode: bytes) -> str:
-    from Crypto.Cipher import AES
-    # return transformed output text
+    from Crypto.Cipher import AES  # Requires a separately installed package.
+    # Return transformed output text.
     return shellcode.hex()
 ```
 
-- Input is provided as raw `bytes`.
-- Returned string replaces the Output panel content.
+Input is raw `bytes`. The returned string becomes stdout or `--output` in CLI
+mode and replaces the Output panel in GUI/web. In CLI mode, `print()` goes to
+stderr. Scripts replace the selected formatter and cannot be combined with raw
+output or custom templates in the CLI.
 
-If Python is unavailable, scripting controls stay disabled and the app shows guidance to install Python.
+If Python is unavailable, CLI scripting reports an error; GUI/web scripting
+controls stay disabled and show installation guidance. GUI and web share saved
+scripts in `~/.config/sc_obf/scripts`.
 
-## Output Templates
+## Custom Templates
 
-The app includes built-in templates and a custom template editor.
+JSON is optional. Write the desired output with `{bytes}` where the bytes should
+appear and `{len}` for the byte count:
 
-Custom template fields:
-- Name
-- Prefix
-- Separator
-- Suffix
-- Byte representation (`0xff`, `&Hff`, or `\\xff`)
+```bash
+sc_obf cli --input payload.bin --template 'byte[] buf = { {bytes} };'
+sc_obf cli --input payload.bin --template 'buf = "{bytes}"' --byte-repr '\xff' --separator ''
+```
 
-Use `{len}` in prefix/suffix to inject payload length.
+For mixed single/double quotes or multiline output, save the template as plain
+text in `format.tpl`. Quotes and backslashes in the file do not need escaping:
 
-## Notes
+```text
+# It's a byte buffer
+buf = "{bytes}"  # {len} bytes
+```
 
-- Loaded files are read as raw bytes (`std::fs::read`).
-- This project focuses on payload formatting and transformation workflows in a local GUI environment.
+```bash
+sc_obf cli --input payload.bin --template-file format.tpl --byte-repr '\xff' --separator ''
+```
+
+Templates require exactly one `{bytes}` placeholder. All other content is kept
+literally, except `{len}`, which expands to the byte count. Defaults: `0xff`
+bytes separated by `, `. `--byte-repr` also accepts `&Hff` or `\xff`.
+
+Existing JSON templates still work with `--template template.json` or
+`--template-file template.json`. GUI/web retain their prefix, separator, suffix,
+and byte representation fields under **Output Templates**.

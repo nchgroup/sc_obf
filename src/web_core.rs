@@ -10,7 +10,7 @@ pub(crate) fn text<'a>(value: &'a Value, key: &str) -> Result<&'a str, String> {
         .ok_or_else(|| format!("Missing string: {key}"))
 }
 
-fn convert(request: &Value, bytes: &[u8]) -> Result<String, String> {
+pub(crate) fn convert(request: &Value, bytes: &[u8]) -> Result<String, String> {
     use formats::{ByteRepr, FormatTemplate, OutputFormat};
     let format = match text(request, "format")? {
         "hex" => OutputFormat::Hex,
