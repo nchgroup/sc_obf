@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#1b1b1b">
+  <title>Shellcode Obfuscator</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="app.js" defer></script>
+</head>
+<body>
+<main class="window">
+  <div class="titlebar"><span class="app-icon">{ }</span><span>sc_obf</span><span class="web-label">Web interface · local</span><span id="connection" role="status">Connecting…</span></div>
+  <div class="central-panel">
+    <h1>Shellcode Obfuscator</h1>
+    <div class="row"><span>Theme:</span><div class="toggle" aria-label="Theme"><button type="button" id="dark" aria-pressed="true">Dark</button><button type="button" id="light" aria-pressed="false">Light</button></div></div>
+    <div class="row input-mode"><span>Input:</span><div class="toggle" aria-label="Input mode"><button type="button" id="mode-generate" aria-pressed="true">Generate</button><button type="button" id="mode-load" aria-pressed="false">Load shellcode</button></div></div>
+    <section id="generate-fields" aria-label="Generate settings" class="field-grid">
+      <label for="lhost">LHOST:</label><input id="lhost" value="127.0.0.1" autocomplete="off" spellcheck="false">
+      <label for="lport">LPORT:</label><input id="lport" value="4444" inputmode="numeric" autocomplete="off">
+    </section>
+    <section id="load-fields" aria-label="Load shellcode" hidden>
+      <div class="row"><button type="button" id="open-file">Open file…</button><span>or paste shellcode below:</span></div>
+      <input type="file" id="file-input" multiple hidden>
+      <button type="button" id="dropzone">Drop files here or click to open <span>· raw bytes · max. 5 MiB / file, 20 MiB total</span></button>
+      <div class="row file-toolbar" id="file-toolbar" hidden><label for="files">Loaded:</label><select id="files"></select><button id="remove-file" type="button">Remove</button></div>
+      <div class="field-grid"><label for="input-format">Input format:</label><select id="input-format"><option value="base64">base64</option><option value="hex">hex</option><option value="escaped">\xNN escaped</option></select></div>
+    </section>
+    <div class="field-grid format-row"><label for="format">Output format:</label><select id="format"><option>hex</option><option>base64</option><option>c</option><option>python</option><option>rust</option><option>csharp</option><option>psh</option><option>vba</option><option>go</option><option>custom</option></select></div>
+    <textarea id="paste-text" class="mono" rows="4" placeholder="paste shellcode here…" aria-label="Paste shellcode" spellcheck="false" hidden></textarea>
+    <div class="row actions"><button type="button" id="convert" disabled>Generate</button><button type="button" id="copy">Copy to clipboard</button><button type="button" id="clear">Clear</button><button type="button" id="download">Download</button><span id="busy" hidden>Processing…</span></div>
+    <div id="status" class="status" role="status" aria-live="polite"></div>
+    <hr>
+    <label for="output" class="output-label">Output:</label>
+    <textarea id="output" class="mono" rows="10" spellcheck="false"></textarea>
+    <div class="output-info"><span id="byte-count">0 bytes</span><span>Editable output · files stay on this computer</span></div>
+    <hr>
+    <details id="python-panel"><summary>Python Scripting</summary>
+      <div id="python-unavailable" class="notice">Checking Python availability…</div>
+      <div id="python-controls" hidden>
+        <p>Define a <code>process(shellcode: bytes) -&gt; str</code> function. Output replaces the payload. Generate a payload first.</p>
+        <div class="row"><label for="saved-scripts">Saved:</label><select id="saved-scripts"><option value="">(none)</option></select><button type="button" id="load-script">Load</button><button type="button" id="delete-script">Delete</button></div>
+        <div class="row"><label for="save-name">Save as:</label><input id="save-name" placeholder="script name"><button type="button" id="save-script">Save</button></div>
+        <div class="code-editor"><div id="line-numbers" aria-hidden="true"></div><div class="code-column"><pre class="highlight-layer" aria-hidden="true"><code id="highlighted-code"></code></pre><textarea id="script" class="mono" rows="18" spellcheck="false" aria-label="Python script" wrap="off">def process(shellcode: bytes) -> str:
+    # XOR-encode with 0xAA and return as hex
+    key = 0xAA
+    return bytes(b ^ key for b in shellcode).hex()
+</textarea></div></div>
+        <div class="row"><button type="button" id="run-script" disabled>Run Script</button><span id="script-status" class="status" role="status" aria-live="polite"></span></div>
+      </div>
+    </details>
+    <hr>
+    <details><summary>Output Templates</summary>
+      <p>Built-in templates (read-only reference):</p>
+      <div class="table-scroll"><table><thead><tr><th>name</th><th>prefix</th><th>sep</th><th>suffix</th><th>byte</th></tr></thead><tbody id="templates"></tbody></table></div>
+      <hr>
+      <p>Custom template — select <code>custom</code> in Output format. Use <code>{len}</code> in prefix/suffix for byte count.</p>
+      <div class="field-grid template-grid"><label for="template-name">Name:</label><input id="template-name" value="custom"><label for="prefix">Prefix:</label><input id="prefix" class="mono" value="byte[] buf = {"><label for="separator">Separator:</label><input id="separator" class="mono" value=", "><label for="suffix">Suffix:</label><input id="suffix" class="mono" value="};"><label for="byte-repr">Byte repr:</label><select id="byte-repr"><option>0xff</option><option>&amp;Hff</option><option>\xff</option></select></div>
+      <div id="preview-row" hidden>Preview: <code id="template-preview"></code></div>
+    </details>
+    <div class="bottom-note">Desktop: <code>cargo run</code> <span>·</span> Web: <code>cargo run -- --web</code></div>
+  </div>
+</main>
+</body>
+</html>

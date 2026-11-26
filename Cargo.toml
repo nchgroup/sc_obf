@@ -2,16 +2,19 @@
 name = "sc_obf"
 version = "0.1.0"
 edition = "2024"
+default-run = "sc_obf"
 
 [dependencies]
-eframe = "0.34"
-egui = "0.34"
-base64 = "0.22"
+eframe = "0.37"
+egui = "0.37"
+base64 = "0.23"
 hex = "0.4"
 arboard = "3"
-pyo3 = { version = "0.29", features = ["auto-initialize"] }
-rfd = "0.15"
-egui_code_editor = "=0.3.1"
+pyo3 = { version = "0.30", features = ["auto-initialize"] }
+rfd = "0.18"
+egui_code_editor = "0.5"
+serde_json = "1"
+tiny_http = "0.12"
 
 # On macOS, eframe requires these native frameworks
 [target.'cfg(target_os = "macos")'.dependencies]

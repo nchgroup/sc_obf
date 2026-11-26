@@ -1,7 +1,7 @@
 use arboard::Clipboard;
 use base64::Engine as _;
 use eframe::egui;
-use egui_code_editor::{CodeEditor, ColorTheme, Syntax};
+use egui_code_editor::{CodeEditor, Color32Theme, ColorTheme, Syntax};
 use std::path::{Path, PathBuf};
 
 use crate::formats::{ByteRepr, FormatTemplate, OutputFormat, builtin_templates, format_bytes};
@@ -16,10 +16,10 @@ pub enum UiTheme {
 }
 
 impl UiTheme {
-    fn editor_theme(&self) -> ColorTheme {
+    fn editor_theme(&self) -> Color32Theme {
         match self {
-            Self::Dark => ColorTheme::GRUVBOX_DARK,
-            Self::Light => ColorTheme::GRUVBOX_LIGHT,
+            Self::Dark => ColorTheme::GRUVBOX.into(),
+            Self::Light => ColorTheme::GRUVBOX_LIGHT.into(),
         }
     }
 }
@@ -134,7 +134,7 @@ impl eframe::App for App {
             UiTheme::Light => ui.ctx().set_visuals(egui::Visuals::light()),
         }
 
-        egui::CentralPanel::default().show_inside(ui, |ui| {
+        egui::CentralPanel::default().show(ui, |ui| {
             ui.heading("Shellcode Obfuscator");
             ui.add_space(8.0);
 
@@ -344,11 +344,12 @@ impl eframe::App for App {
                     });
                     ui.add_space(4.0);
 
+                    let editor_theme = self.ui_theme.editor_theme();
                     let mut code_editor = CodeEditor::default()
                         .id_source("python_script_editor")
                         .with_rows(18)
                         .with_fontsize(14.0)
-                        .with_theme(self.ui_theme.editor_theme())
+                        .with_theme(&editor_theme)
                         .with_numlines(true)
                         .vscroll(true);
                     code_editor.show(ui, &mut self.script_code, &self.python_syntax);

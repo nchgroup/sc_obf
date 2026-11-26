@@ -1,6 +1,7 @@
 # sc_obf
 
-sc_obf (Shellcode Obfuscator) is a desktop GUI tool built with Rust and egui.
+sc_obf (Shellcode Obfuscator) provides a Rust/egui desktop GUI and a local web
+interface served by a Rust binary.
 
 It can:
 - Generate a patched shellcode payload using LHOST and LPORT.
@@ -32,6 +33,40 @@ cargo build
 ```bash
 cargo run
 ```
+
+## Web Interface
+
+Run the same application in your browser:
+
+```bash
+cargo run -- --web
+```
+
+Open **http://127.0.0.1:3000**. To customize the host and port:
+
+```bash
+cargo run -- --web 127.0.0.1:8080
+cargo run -- --web 0.0.0.0:3000
+```
+
+Use `0.0.0.0` to listen on all network interfaces. Without `--web`, the
+application opens the desktop GUI.
+
+To build and run the binary directly:
+
+```bash
+cargo build --release
+./target/release/sc_obf --web
+```
+
+The web interface includes the desktop features plus drag and drop, multiple
+file selection, and output downloads. The server and frontend are embedded in
+the Rust binary; rebuild after changing the frontend. Python is only used for
+optional scripting.
+
+Files are processed on the machine running the server and kept in memory
+(5 MiB per file, 20 MiB total). Reloading clears the file list. Both interfaces
+share saved scripts in `~/.config/sc_obf/scripts`.
 
 ## How To Use
 

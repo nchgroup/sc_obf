@@ -29,6 +29,9 @@ pub fn parse_hex_bytes(s: &str) -> Result<Vec<u8>, String> {
     if s.is_empty() {
         return Err("no hex data found".into());
     }
+    if !s.is_ascii() {
+        return Err("hex data must contain only ASCII hexadecimal characters".into());
+    }
     if s.len() % 2 != 0 {
         return Err(format!("hex data has odd length ({})", s.len()));
     }
